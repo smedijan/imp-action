@@ -34435,11 +34435,17 @@ function validateBase(base, git = args => spawnSync('git', args, { encoding: 'ut
 
 async function releaseTag(version, request = fetch) {
   if (version === 'latest') {
-    const response = await request('https://api.github.com/repos/smedijan/go-imp/releases/latest', {
-      headers: { 'User-Agent': 'smedijan/imp-action' }, signal: AbortSignal.timeout(120000),
+    // The public redirect avoids the unauthenticated REST API rate limit shared
+    // by hosted runners, without requiring a token or an additional input.
+    const response = await request(`${repository}/releases/latest`, {
+      method: 'HEAD', redirect: 'follow', signal: AbortSignal.timeout(120000),
     });
     if (!response.ok) throw new Error(`Release lookup failed: HTTP ${response.status}`);
-    version = (await response.json()).tag_name;
+    const url = new URL(response.url);
+    if (url.origin !== 'https://github.com' || !url.pathname.startsWith('/smedijan/go-imp/releases/tag/')) {
+      throw new Error('Unexpected release redirect');
+    }
+    version = decodeURIComponent(url.pathname.slice('/smedijan/go-imp/releases/tag/'.length));
   }
   if (typeof version !== 'string' || !/^v?\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/.test(version)) {
     throw new Error('version must be latest or a release version, e.g. v0.8.0');
@@ -34479,9 +34485,22 @@ async function install(tag, platform = process.platform, arch = process.arch) {
   }
 }
 
+function gitEnvironment(env = process.env) {
+  // imp parses Git's CombinedOutput: line-ending warnings on stderr otherwise
+  // corrupt the patch on Windows. Disable only this warning, only for the child;
+  // retain the user's line-ending conversion and on-disk Git configuration.
+  const count = Number(env.GIT_CONFIG_COUNT || 0);
+  return {
+    ...env,
+    GIT_CONFIG_COUNT: String(count + 1),
+    [`GIT_CONFIG_KEY_${count}`]: 'core.safecrlf',
+    [`GIT_CONFIG_VALUE_${count}`]: 'false',
+  };
+}
+
 function executeImp(binary, args, base, spawn = spawnSync) {
   // Empty diff explicitly disables a diff configured in .imp.yaml or the environment.
-  const result = spawn(binary, ['run', ...args, `--diff=${base}`], { stdio: 'inherit' });
+  const result = spawn(binary, ['run', ...args, `--diff=${base}`], { stdio: 'inherit', env: gitEnvironment() });
   if (result.error) throw result.error;
   if (result.signal) throw new Error(`imp terminated by ${result.signal}`);
   return result.status;
@@ -34503,7 +34522,7 @@ async function run(inputs, env = process.env) {
   }
 }
 
-module.exports = { extraArguments, diffBase, validateBase, releaseTag, assetName, verifyChecksum, install, executeImp, run };
+module.exports = { extraArguments, diffBase, validateBase, releaseTag, assetName, verifyChecksum, install, gitEnvironment, executeImp, run };
 
 
 /***/ }),

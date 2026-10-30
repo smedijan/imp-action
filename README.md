@@ -64,8 +64,9 @@ The default branch is read from GitHub's event payload, not assumed to be `main`
 ## Requirements and behavior
 
 - Check out your code and set up Go first. No separate Node/Python setup is needed: GitHub runs the bundled JavaScript action using its **Node 24** runtime. Self-hosted runners must support `node24` JavaScript actions.
-- Linux, macOS and Windows are supported where go-imp provides a matching release binary. Network access to GitHub's API and release assets is required.
-- `latest` selects GitHub's latest non-prerelease release. Explicit versions avoid automatic tool upgrades. Checksums detect corrupted downloads, not compromised upstream releases.
+- Linux, macOS and Windows are supported where go-imp provides a matching release binary. Network access to GitHub's release pages and assets is required; no API token is needed.
+- Git line-ending safety warnings are disabled only for the imp subprocess, because imp combines Git stdout/stderr when parsing patches. Checkout files, line-ending conversion and repository configuration are not changed.
+- `latest` selects GitHub's latest non-prerelease release via its public release redirect, avoiding unauthenticated API rate limits. Explicit versions avoid automatic tool upgrades. Checksums detect corrupted downloads, not compromised upstream releases.
 - The CLI exit status is propagated, including quality-gate failures. Use the step's `continue-on-error` setting for advisory checks.
 - Reports go to the job log unless configured otherwise. Retain report files with `actions/upload-artifact` if desired.
 - Flags available through `args` depend on the selected go-imp version.
