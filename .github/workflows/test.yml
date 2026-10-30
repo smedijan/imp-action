@@ -1,0 +1,36 @@
+name: Test action
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - run: python3 -m unittest discover -s tests -v
+      - name: Create smoke-test module
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/imp-smoke"
+          cd "$RUNNER_TEMP/imp-smoke"
+          go mod init example.com/smoke
+          printf 'package smoke\nfunc Add(a, b int) int { return a + b }\n' > smoke.go
+          printf 'package smoke\nimport "testing"\nfunc TestAdd(t *testing.T) { if Add(1, 2) != 3 { t.Fatal("wrong sum") } }\n' > smoke_test.go
+      - uses: ./
+        with:
+          imp-version: v0.8.0
+          path: ${{ runner.temp }}/imp-smoke
+          dry-run: 'true'
+      - uses: ./
+        with:
+          path: ${{ runner.temp }}/imp-smoke
+          dry-run: 'true'

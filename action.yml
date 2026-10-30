@@ -1,0 +1,146 @@
+name: imp mutation testing
+description: Download go-imp and run configurable Go mutation tests
+branding:
+  icon: target
+  color: purple
+inputs:
+  imp-version:
+    description: "Release version to download, or latest"
+    required: false
+    default: "latest"
+  path:
+    description: "Go module path"
+    required: false
+    default: "."
+  config:
+    description: "Read configuration from FILE"
+    required: false
+    default: ""
+  quiet:
+    description: "Suppress progress, not reports or errors"
+    required: false
+    default: ""
+  no-color:
+    description: "Disable colored output"
+    required: false
+    default: ""
+  json:
+    description: "Write grouped JSON"
+    required: false
+    default: ""
+  statuses:
+    description: "Comma-separated statuses to report"
+    required: false
+    default: ""
+  verbose:
+    description: "Expand source context and test commands"
+    required: false
+    default: ""
+  dry-run:
+    description: "Gather coverage and mutations without testing"
+    required: false
+    default: ""
+  tags:
+    description: "Comma-separated Go build tags"
+    required: false
+    default: ""
+  coverpkg:
+    description: "Comma-separated coverage package patterns"
+    required: false
+    default: ""
+  diff:
+    description: "Limit mutations to changes against Git REF"
+    required: false
+    default: ""
+  output:
+    description: "Report destination FILE (- for stdout)"
+    required: false
+    default: ""
+  integration:
+    description: "Run the whole module test suite per mutation"
+    required: false
+    default: ""
+  exclude-files:
+    description: "Exclude path regular expressions, one per line"
+    required: false
+    default: ""
+  include-files:
+    description: "Include path regular expressions, one per line"
+    required: false
+    default: ""
+  exclude-workdir:
+    description: "Omit module-relative paths from worker copies, one per line"
+    required: false
+    default: ""
+  threshold-efficacy:
+    description: "Required test efficacy percentage (0 disables)"
+    required: false
+    default: ""
+  threshold-mcover:
+    description: "Required mutant coverage percentage (0 disables)"
+    required: false
+    default: ""
+  workers:
+    description: "Mutation workers (0 selects automatically)"
+    required: false
+    default: ""
+  test-cpu:
+    description: "Go test CPU option (0 leaves unset)"
+    required: false
+    default: ""
+  timeout-coefficient:
+    description: "Coverage time multiplier for timeouts (0 uses five)"
+    required: false
+    default: ""
+  conditionals-boundary:
+    description: "Enable conditionals-boundary mutants"
+    required: false
+    default: ""
+  conditionals-negation:
+    description: "Enable conditionals-negation mutants"
+    required: false
+    default: ""
+  increment-decrement:
+    description: "Enable increment-decrement mutants"
+    required: false
+    default: ""
+  invert-logical:
+    description: "Enable invert-logical mutants"
+    required: false
+    default: ""
+  invert-negatives:
+    description: "Enable invert-negatives mutants"
+    required: false
+    default: ""
+  arithmetic-base:
+    description: "Enable arithmetic-base mutants"
+    required: false
+    default: ""
+  invert-loopctrl:
+    description: "Enable invert-loopctrl mutants"
+    required: false
+    default: ""
+  invert-assignments:
+    description: "Enable invert-assignments mutants"
+    required: false
+    default: ""
+  invert-bitwise:
+    description: "Enable invert-bitwise mutants"
+    required: false
+    default: ""
+  invert-bwassign:
+    description: "Enable invert-bwassign mutants"
+    required: false
+    default: ""
+  remove-self-assignments:
+    description: "Enable remove-self-assignments mutants"
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Download and run imp
+      shell: bash
+      env:
+        IMP_ACTION_INPUTS: ${{ toJSON(inputs) }}
+      run: python3 "$GITHUB_ACTION_PATH/scripts/run.py"
