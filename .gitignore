@@ -1,7 +1,3 @@
-# Python test/runtime caches
-__pycache__/
-*.py[cod]
-
 # Logs
 logs
 *.log
@@ -84,7 +80,6 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-dist
 .output
 
 # Gatsby files

@@ -10,27 +10,37 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
       - uses: actions/setup-go@v5
         with:
           go-version: stable
-      - run: python3 -m unittest discover -s tests -v
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: git diff --exit-code -- dist
       - name: Create smoke-test module
         shell: bash
         run: |
-          mkdir -p "$RUNNER_TEMP/imp-smoke"
-          cd "$RUNNER_TEMP/imp-smoke"
+          mkdir -p smoke
+          cd smoke
           go mod init example.com/smoke
           printf 'package smoke\nfunc Add(a, b int) int { return a + b }\n' > smoke.go
           printf 'package smoke\nimport "testing"\nfunc TestAdd(t *testing.T) { if Add(1, 2) != 3 { t.Fatal("wrong sum") } }\n' > smoke_test.go
+          printf 'run:\n  dry-run: true\n' > .imp.yaml
       - uses: ./
         with:
-          imp-version: v0.8.0
-          path: ${{ runner.temp }}/imp-smoke
-          dry-run: 'true'
+          version: v0.8.0
+          diff: off
+          args: |
+            --config=smoke/.imp.yaml
+            smoke
       - uses: ./
         with:
-          path: ${{ runner.temp }}/imp-smoke
-          dry-run: 'true'
+          args: |
+            --config=smoke/.imp.yaml
+            smoke

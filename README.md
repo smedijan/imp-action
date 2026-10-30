@@ -1,12 +1,16 @@
 # imp-action
 
-Run [go-imp](https://github.com/smedijan/go-imp), a Go mutation testing tool, in GitHub Actions. Downloads the latest stable release binary by default and verifies it against the release SHA-256 checksums. No source build is performed.
+Run [go-imp](https://github.com/smedijan/go-imp) mutation tests using your repository's `.imp.yaml`. Downloads a release binary, verifies its SHA-256 checksum, and runs `imp run`.
 
 ## Usage
 
 ```yaml
 name: Mutation tests
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
 permissions:
   contents: read
 jobs:
@@ -15,76 +19,67 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Needed when comparing against Git history with diff
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
       - uses: smedijan/imp-action@main
-        with:
-          imp-version: latest # Or pin a release, e.g. v0.8.0 (0.8.0 also works)
-          threshold-efficacy: '80'
-          exclude-files: |
-            .*_generated\.go$
-            mocks/.*
 ```
 
-Pin the action to a commit SHA for reproducible workflows; pin `imp-version` too to avoid automatic tool upgrades.
+This uses `.imp.yaml` for mutation settings, compares PRs/merge queues against their base, and runs the full suite on the default branch. Pin the action to a commit SHA and `version` to a release for reproducible workflows.
 
 ## Inputs
 
-Inputs mirror the long flags of `imp run`, including global configuration flags and all mutation toggles. Empty inputs are **not passed**: go-imp retains its own defaults, environment variables and configuration-file behavior. Explicit `'false'` overrides a configured boolean. Quote boolean and numeric values in YAML. Repeated flags use newline-separated values; commas in regular expressions are preserved. Values are passed as individual arguments, never evaluated as shell code.
-
-| Input | Meaning | Action default |
+| Input | Default | Meaning |
 | --- | --- | --- |
-| `imp-version` | Release version to download, or latest | `latest` |
-| `path` | Go module path | `.` |
-| `config` | Read configuration from FILE | Unset |
-| `quiet` | Suppress progress, not reports or errors | Unset |
-| `no-color` | Disable colored output | Unset |
-| `json` | Write grouped JSON | Unset |
-| `statuses` | Comma-separated statuses to report | Unset |
-| `verbose` | Expand source context and test commands | Unset |
-| `dry-run` | Gather coverage and mutations without testing | Unset |
-| `tags` | Comma-separated Go build tags | Unset |
-| `coverpkg` | Comma-separated coverage package patterns | Unset |
-| `diff` | Limit mutations to changes against Git REF | Unset |
-| `output` | Report destination FILE (- for stdout) | Unset |
-| `integration` | Run the whole module test suite per mutation | Unset |
-| `exclude-files` | Exclude path regular expressions, one per line | Unset |
-| `include-files` | Include path regular expressions, one per line | Unset |
-| `exclude-workdir` | Omit module-relative paths from worker copies, one per line | Unset |
-| `threshold-efficacy` | Required test efficacy percentage (0 disables) | Unset |
-| `threshold-mcover` | Required mutant coverage percentage (0 disables) | Unset |
-| `workers` | Mutation workers (0 selects automatically) | Unset |
-| `test-cpu` | Go test CPU option (0 leaves unset) | Unset |
-| `timeout-coefficient` | Coverage time multiplier for timeouts (0 uses five) | Unset |
-| `conditionals-boundary` | Enable conditionals-boundary mutants | Unset |
-| `conditionals-negation` | Enable conditionals-negation mutants | Unset |
-| `increment-decrement` | Enable increment-decrement mutants | Unset |
-| `invert-logical` | Enable invert-logical mutants | Unset |
-| `invert-negatives` | Enable invert-negatives mutants | Unset |
-| `arithmetic-base` | Enable arithmetic-base mutants | Unset |
-| `invert-loopctrl` | Enable invert-loopctrl mutants | Unset |
-| `invert-assignments` | Enable invert-assignments mutants | Unset |
-| `invert-bitwise` | Enable invert-bitwise mutants | Unset |
-| `invert-bwassign` | Enable invert-bwassign mutants | Unset |
-| `remove-self-assignments` | Enable remove-self-assignments mutants | Unset |
+| `version` | `latest` | Latest stable go-imp release, or a release such as `v0.8.0` / `0.8.0` |
+| `args` | empty | Additional `imp run` arguments, **one argument per line** |
+| `diff` | `auto` | Automatic diff scope, `off` for a full run, or an explicit Git ref |
+
+```yaml
+- uses: smedijan/imp-action@main
+  with:
+    version: v0.8.0
+    diff: auto
+    args: |
+      --dry-run
+      --output=mutation report.json
+```
+
+Arguments are passed literally, not parsed as shell code: no shell expansion or quoting is needed. Use `--flag=value` for a value containing spaces. Repeated flags occupy separate lines. A module subdirectory can be passed as a positional argument; use `--config=path/to/.imp.yaml` if needed. Relative paths are resolved from the workspace root.
+
+### Automatic diff scope
+
+| Context | Comparison base |
+| --- | --- |
+| Pull request | PR base commit from the event |
+| Merge queue (`merge_group`) | Merge-group base commit from the event |
+| Default branch | No diff: full run |
+| Other branches or tags | `origin/<default branch>` |
+
+The default branch is read from GitHub's event payload, not assumed to be `main`. Go-imp compares against the merge-base, supporting both the default synthetic PR merge checkout and PR-head checkouts. Use `actions/checkout` with `fetch-depth: 0`; unavailable refs or missing history fail clearly. The action does not fetch or change your checkout. If event metadata cannot identify the default branch, set `diff` to an explicit ref or `off`.
+
+`diff` is the only CLI setting owned by the action: it overrides any diff in `.imp.yaml` or the environment, including clearing it for full runs. Do not pass `--diff` or `-D` in `args`. All other settings retain go-imp's normal configuration behavior.
 
 ## Requirements and behavior
 
-- Check out your repository and install the appropriate Go version first.
-- GitHub-hosted Linux, macOS and Windows runners are supported. Self-hosted runners need Python 3.9+, Bash, Go, and network access to GitHub release assets/API. A binary must exist for the runner OS/architecture.
-- `path` selects the module to test; `config` and `output` are resolved from the workspace working directory, just as with the CLI.
-- The action runs `imp run`; informational `--help` and root `--version` are not mutation-run inputs. `imp-version` selects the downloaded release, not the CLI's version-print flag.
-- Flag support depends on the selected go-imp version. Older releases may reject newer flags; unset inputs are never forwarded.
-- Reports go to the job log unless `output` is set. Use `actions/upload-artifact` separately to retain report files.
-- The CLI exit status is propagated, including quality-gate failures. Use the step's standard `continue-on-error` setting if failures should be advisory.
-- `latest` means GitHub's latest non-prerelease release. Checksums detect corrupt downloads, not a compromised upstream release.
+- Check out your code and set up Go first. No separate Node/Python setup is needed: GitHub runs the bundled JavaScript action using its **Node 24** runtime. Self-hosted runners must support `node24` JavaScript actions.
+- Linux, macOS and Windows are supported where go-imp provides a matching release binary. Network access to GitHub's API and release assets is required.
+- `latest` selects GitHub's latest non-prerelease release. Explicit versions avoid automatic tool upgrades. Checksums detect corrupted downloads, not compromised upstream releases.
+- The CLI exit status is propagated, including quality-gate failures. Use the step's `continue-on-error` setting for advisory checks.
+- Reports go to the job log unless configured otherwise. Retain report files with `actions/upload-artifact` if desired.
+- Flags available through `args` depend on the selected go-imp version.
 
-See [go-imp documentation](https://github.com/smedijan/go-imp#readme) for configuration, mutation types, thresholds and report semantics.
+See [go-imp documentation](https://github.com/smedijan/go-imp#readme) for `.imp.yaml`, mutation types, quality gates and reporting.
 
 ## Development
 
+With Node 24:
+
 ```sh
-python3 -m unittest discover -s tests -v
+npm ci
+npm test
+npm run build
 ```
+
+Commit `dist/` after source/dependency changes: GitHub executes the bundle without installing packages. CI tests the action on Linux, macOS and Windows and checks that the bundle is current.
