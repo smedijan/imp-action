@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - uses: smedijan/imp-action@main
+      - uses: smedijan/imp-action@v1
 ```
 
 This uses `.imp.yaml` for mutation settings, compares PRs/merge queues against their base, and runs the full suite on the default branch. Pin the action to a commit SHA and `version` to a release for reproducible workflows.
@@ -37,7 +37,7 @@ This uses `.imp.yaml` for mutation settings, compares PRs/merge queues against t
 | `diff` | `auto` | Automatic diff scope, `off` for a full run, or an explicit Git ref |
 
 ```yaml
-- uses: smedijan/imp-action@main
+- uses: smedijan/imp-action@v1
   with:
     version: v0.8.0
     diff: auto
